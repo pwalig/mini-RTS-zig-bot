@@ -2,7 +2,6 @@ const std = @import("std");
 const net = std.net;
 const print = std.debug.print;
 
-const board = @import("board.zig").board;
 const Client = @import("client.zig").Client;
 
 const buffsize = 50;
