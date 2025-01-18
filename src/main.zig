@@ -27,7 +27,7 @@ pub fn main() !void {
     };
     const port = try std.fmt.parseInt(u16, port_value, 10);
 
-    var cli = try Client.init(host_value, port, allocator);
+    var cli = try Client.init(host_value, port);
     defer cli.deinit();
-    cli.loop();
+    cli.loop(allocator);
 }
