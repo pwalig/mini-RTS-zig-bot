@@ -113,8 +113,9 @@ pub const Client = struct {
 
                         print("{d} {d} {d} {d}\n", .{ self.game.?.units.get(unit.id).?.id, unit.x, self.game.?.units.get(unit.id).?.y, unit.hp });
                     }
-                    self.game.?.board.printUnits(&self.game.?);
                 }
+                self.game.?.printPlayerNames();
+                self.game.?.board.printUnits(&self.game.?);
             },
             @intFromEnum(Message.Type.resources) => {
                 var it0 = std.mem.tokenizeAny(u8, buff[1..], ";");
@@ -136,7 +137,7 @@ pub const Client = struct {
                 const hp = try std.fmt.parseUnsigned(u32, it.next().?, 10);
 
                 self.game.?.board.getField(x, y).res_hp = hp;
-                self.game.?.board.printResources();
+                // self.game.?.board.printResources();
             },
             @intFromEnum(Message.Type.unit) => {
                 var it = std.mem.tokenizeAny(u8, buff[1..], " \n");
@@ -146,6 +147,12 @@ pub const Client = struct {
                 const y = try std.fmt.parseUnsigned(u32, it.next().?, 10);
                 print("{s} got new unit\n", .{playerName});
                 try self.game.?.newUnit(playerName, Unit{ .id = id, .x = x, .y = y, .hp = 100 });
+                self.game.?.board.printUnits(&self.game.?);
+            },
+            @intFromEnum(Message.Type.leave) => {
+                const playerName = buff[1..]; // player name
+                print("{s} left\n", .{playerName});
+                try self.game.?.deletePlayer(playerName);
                 self.game.?.board.printUnits(&self.game.?);
             },
             @intFromEnum(Message.Type.join) => {

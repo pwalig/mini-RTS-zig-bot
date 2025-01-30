@@ -93,12 +93,45 @@ pub const Game = struct {
         return null;
     }
 
+    pub fn findPlayerArrayPosition(self: *Game, playerName: []const u8) ?u32 {
+        for (self.players.items, 0..) |*player, id| {
+            if (std.mem.eql(u8, player.name.items, playerName)) return @intCast(id);
+        }
+        return null;
+    }
+
     pub fn newPlayer(self: *Game, playerName: []const u8) !void {
         try self.players.append(try Player.init(playerName, self.nextPlayerId, self.players.allocator));
         self.nextPlayerId += 1;
-        print("players\n", .{});
+    }
+
+    pub fn printPlayerNames(self: *Game) void {
+        print("players:\n", .{});
         for (self.players.items) |*player| {
             print("{s} id:{d}\n", .{ player.name.items, player.id });
+        }
+    }
+
+    pub fn deletePlayer(self: *Game, playerName: []const u8) error{OutOfMemory}!void {
+        const arid = self.findPlayerArrayPosition(playerName).?;
+        var pl = self.players.items[arid];
+        const pid = pl.id;
+        pl.deinit();
+        _ = self.players.orderedRemove(arid);
+
+        var toRemove = std.ArrayList(u32).init(self.units.allocator);
+        defer toRemove.deinit();
+
+        var it = self.units.valueIterator();
+        while (it.next()) |unit| {
+            if (unit.owner == pid) try toRemove.append(unit.id);
+        }
+
+        for (toRemove.items) |uid| {
+            const x = self.units.get(uid).?.x;
+            const y = self.units.get(uid).?.y;
+            self.board.getField(x, y).unit_id = null;
+            _ = self.units.remove(uid);
         }
     }
 
