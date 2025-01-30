@@ -13,6 +13,7 @@ pub const Client = struct {
     stream: Stream,
     state: State,
     game: ?Game = null,
+    name: [6]u8 = "zigbot",
 
     pub fn init(hostname: []const u8, port: u16) !Client {
         const peer = try std.net.Address.parseIp4(hostname, port);
@@ -52,8 +53,17 @@ pub const Client = struct {
                 const x = try std.fmt.parseInt(u32, it.next().?, 10);
                 const y = try std.fmt.parseInt(u32, it.next().?, 10);
                 self.game = try Game.init(x, y, allocator);
-                try self.send("nzigbot\nj\n");
+                try self.send("nzigbot\n");
+                self.state = State.Connected;
                 print("x: {d}, y: {d}\n", .{ self.game.?.board.x, self.game.?.board.y });
+            },
+            @intFromEnum(Message.Type.no) => {
+                if (self.state == State.Ready)
+                    try self.send("j\n");
+            },
+            @intFromEnum(Message.Type.no) => {
+                if (self.state == State.Connected)
+                    try self.send("nzigbot1\n");
             },
             @intFromEnum(Message.Type.tick) => {
                 print("got a tick => time to make a move\n", .{});
@@ -70,3 +80,9 @@ pub const Client = struct {
         self.stream.close();
     }
 };
+
+test "string_test" {
+    var name = [8]u8{ 'z', 'i', 'g', '-', 'b', 'o', 't', '0' };
+    name[7] = '1';
+    try std.testing.expect(std.mem.eql(u8, name[0..], "zig-bot1"));
+}
