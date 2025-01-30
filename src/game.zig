@@ -1,7 +1,8 @@
 const std = @import("std");
 const testing = std.testing;
+const print = std.debug.print;
 
-pub const Unit = struct { id: u32, hp: u32, x: u32, y: u32 };
+pub const Unit = struct { id: u32 = undefined, hp: u32 = undefined, x: u32 = undefined, y: u32 = undefined };
 
 pub const Field = struct { unit_id: ?u32, res_hp: ?u32 };
 
@@ -24,6 +25,30 @@ pub const Board = struct {
         return &self.fields[x * self.y + y];
     }
 
+    pub fn printUnits(self: *Board) void {
+        for (0..self.y) |yi| {
+            for (0..self.x) |xi| {
+                const f = self.getField(@intCast(xi), @intCast(yi));
+                if (f.unit_id) |id| {
+                    print("{d}", .{id});
+                } else print("-", .{});
+            }
+            print("\n", .{});
+        }
+    }
+
+    pub fn printResources(self: *Board) void {
+        for (0..self.y) |yi| {
+            for (0..self.x) |xi| {
+                const f = self.getField(@intCast(xi), @intCast(yi));
+                if (f.res_hp) |_| {
+                    print("#", .{});
+                } else print("-", .{});
+            }
+            print("\n", .{});
+        }
+    }
+
     pub fn deinit(self: *Board) void {
         self.allocator.free(self.fields);
     }
@@ -37,8 +62,9 @@ pub const Game = struct {
         return Game{ .board = try Board.init(x, y, allocator), .units = std.AutoHashMap(u32, Unit).init(allocator) };
     }
 
-    pub fn newUnit(self: *Game, unit: Unit) void {
-        self.units.put(unit.id, unit);
+    pub fn newUnit(self: *Game, unit: Unit) !void {
+        try self.units.put(unit.id, unit);
+        self.board.getField(unit.x, unit.y).unit_id = unit.id;
     }
 
     pub fn deinit(self: *Game) void {

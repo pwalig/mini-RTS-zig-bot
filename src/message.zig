@@ -1,7 +1,7 @@
 const std = @import("std");
 const parseInt = std.fmt.parseInt;
 
-pub const Type = enum(u8) { config = 'c', join = 'j', leave = 'l', move = 'm', attack = 'a', mine = 'd', unit = 'u', new_resource = 'f', tick = 't', queue = 'q', yes = 'y', no = 'n', lost = 'L', win = 'W' };
+pub const Type = enum(u8) { config = 'c', players = 'p', resources = 'r', join = 'j', leave = 'l', move = 'm', attack = 'a', mine = 'd', unit = 'u', new_resource = 'f', tick = 't', queue = 'q', yes = 'y', no = 'n', lost = 'L', win = 'W' };
 
 const ParseError = error{InvalitType};
 
