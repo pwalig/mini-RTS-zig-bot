@@ -97,8 +97,10 @@ pub const Client = struct {
                     var it1 = std.mem.tokenizeAny(u8, it0.next().?[0..], ",");
 
                     var itintro = std.mem.tokenizeAny(u8, it1.next().?[0..], " ");
-                    _ = itintro.next(); // player name
+                    const playerName = itintro.next().?; // player name
                     const playerUnitsCount = try std.fmt.parseUnsigned(u32, itintro.next().?, 10);
+
+                    try self.game.?.newPlayer(playerName);
 
                     for (0..playerUnitsCount) |_| {
                         var it3 = std.mem.tokenizeAny(u8, it1.next().?[0..], " ");
@@ -107,11 +109,11 @@ pub const Client = struct {
                         unit.x = try std.fmt.parseUnsigned(u32, it3.next().?, 10);
                         unit.y = try std.fmt.parseUnsigned(u32, it3.next().?, 10);
                         unit.hp = try std.fmt.parseUnsigned(u32, it3.next().?, 10);
-                        try self.game.?.newUnit(unit);
+                        try self.game.?.newUnit(playerName, unit);
 
                         print("{d} {d} {d} {d}\n", .{ self.game.?.units.get(unit.id).?.id, unit.x, self.game.?.units.get(unit.id).?.y, unit.hp });
                     }
-                    self.game.?.board.printUnits();
+                    self.game.?.board.printUnits(&self.game.?);
                 }
             },
             @intFromEnum(Message.Type.resources) => {
@@ -138,12 +140,17 @@ pub const Client = struct {
             },
             @intFromEnum(Message.Type.unit) => {
                 var it = std.mem.tokenizeAny(u8, buff[1..], " \n");
-                _ = it.next().?; // player name
+                const playerName = it.next().?; // player name
                 const id = try std.fmt.parseUnsigned(u32, it.next().?, 10);
                 const x = try std.fmt.parseUnsigned(u32, it.next().?, 10);
                 const y = try std.fmt.parseUnsigned(u32, it.next().?, 10);
-                try self.game.?.newUnit(Unit{ .id = id, .x = x, .y = y, .hp = 100 });
-                self.game.?.board.printUnits();
+                print("{s} got new unit\n", .{playerName});
+                try self.game.?.newUnit(playerName, Unit{ .id = id, .x = x, .y = y, .hp = 100 });
+                self.game.?.board.printUnits(&self.game.?);
+            },
+            @intFromEnum(Message.Type.join) => {
+                try self.game.?.newPlayer(buff[1..]);
+                print("{s} joined\n", .{buff[1..]});
             },
             @intFromEnum(Message.Type.tick) => {},
             else => {
