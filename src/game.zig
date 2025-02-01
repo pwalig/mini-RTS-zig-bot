@@ -1,6 +1,8 @@
 const std = @import("std");
 const testing = std.testing;
 const print = std.debug.print;
+const distance = @import("coordinateOps.zig").distance;
+const coords = @import("coordinateOps.zig").coords;
 
 pub const Unit = struct { id: u32 = undefined, hp: u32 = undefined, x: u32 = undefined, y: u32 = undefined, owner: u32 = undefined };
 
@@ -23,6 +25,32 @@ pub const Board = struct {
 
     pub fn getField(self: *Board, x: u32, y: u32) *Field {
         return &self.fields[x * self.y + y];
+    }
+
+    pub fn getClosestResourceFieldPosition(self: *Board, x: u32, y: u32) ?coords {
+        // TO DO write optimal version
+        //var dist: u32 = 0;
+        //const curField = self.getField(x, y);
+        //if (curField.res_hp) |_| return curField;
+        //dist += 1;
+        //...
+        //return null;
+
+        var minDist = self.x + self.y;
+        var bestField: ?coords = null;
+        for (0..self.y) |yi| {
+            for (0..self.x) |xi| {
+                const f = self.getField(@intCast(xi), @intCast(yi));
+                if (f.res_hp != null) {
+                    const dist = distance(x, y, @intCast(xi), @intCast(yi));
+                    if (dist < minDist) {
+                        minDist = dist;
+                        bestField = coords{ .x = @intCast(xi), .y = @intCast(yi) };
+                    }
+                }
+            }
+        }
+        return bestField;
     }
 
     pub fn clear(self: *Board) void {

@@ -5,6 +5,7 @@ const print = std.debug.print;
 const Message = @import("message.zig");
 const Game = @import("game.zig").Game;
 const Unit = @import("game.zig").Unit;
+const coordOps = @import("coordinateOps.zig");
 
 const singleReadSize = 50;
 
@@ -218,7 +219,26 @@ pub const Client = struct {
                 try self.game.?.newPlayer(buff[1..]);
                 print("{s} joined\n", .{buff[1..]});
             },
-            @intFromEnum(Message.Type.tick) => {},
+            @intFromEnum(Message.Type.tick) => {
+                const player = self.game.?.findPlayer(&self.name).?;
+                var it = player.units.valueIterator();
+                while (it.next()) |unit| {
+                    const fieldc = self.game.?.board.getClosestResourceFieldPosition(unit.x, unit.y);
+                    if (fieldc) |fc| {
+                        const cds = coordOps.towards(unit.x, unit.y, fc.x, fc.y);
+                        const max_len = 10; // TO DO figure out max_len from config sent by server
+                        var buf: [max_len]u8 = undefined;
+                        try self.send("m");
+                        try self.send(try std.fmt.bufPrint(&buf, "{}", .{unit.id}));
+                        try self.send(" ");
+                        try self.send(try std.fmt.bufPrint(&buf, "{}", .{cds.x}));
+                        try self.send(" ");
+                        try self.send(try std.fmt.bufPrint(&buf, "{}", .{cds.y}));
+                        try self.send("\n");
+                        print("move from {d} {d}\n", .{ unit.x, unit.y });
+                    }
+                }
+            },
             else => {
                 print("got invalid message type character {c}\n", .{t});
             },
