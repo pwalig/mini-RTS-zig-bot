@@ -111,6 +111,7 @@ pub const Client = struct {
 
                     for (0..playerUnitsCount) |_| {
                         var it3 = std.mem.tokenizeAny(u8, it1.next().?[0..], " ");
+
                         var unit = Unit{};
                         unit.id = try std.fmt.parseUnsigned(u32, it3.next().?, 10);
                         unit.x = try std.fmt.parseUnsigned(u32, it3.next().?, 10);
@@ -126,6 +127,7 @@ pub const Client = struct {
             },
             @intFromEnum(Message.Type.resources) => {
                 var it0 = std.mem.tokenizeAny(u8, buff[1..], ";");
+
                 const resourceCount = try std.fmt.parseUnsigned(u32, it0.next().?, 10);
 
                 for (0..resourceCount) |_| {
@@ -139,6 +141,7 @@ pub const Client = struct {
             },
             @intFromEnum(Message.Type.new_resource) => {
                 var it = std.mem.tokenizeAny(u8, buff[1..], " \n");
+
                 const x = try std.fmt.parseUnsigned(u32, it.next().?, 10);
                 const y = try std.fmt.parseUnsigned(u32, it.next().?, 10);
                 const hp = try std.fmt.parseUnsigned(u32, it.next().?, 10);
@@ -148,10 +151,12 @@ pub const Client = struct {
             },
             @intFromEnum(Message.Type.unit) => {
                 var it = std.mem.tokenizeAny(u8, buff[1..], " \n");
+
                 const playerName = it.next().?; // player name
                 const id = try std.fmt.parseUnsigned(u32, it.next().?, 10);
                 const x = try std.fmt.parseUnsigned(u32, it.next().?, 10);
                 const y = try std.fmt.parseUnsigned(u32, it.next().?, 10);
+
                 print("{s} got new unit\n", .{playerName});
                 try self.game.?.newUnit(playerName, Unit{ .id = id, .x = x, .y = y, .hp = 100 });
                 self.game.?.board.printUnits(&self.game.?);
@@ -168,6 +173,46 @@ pub const Client = struct {
                     try self.game.?.deletePlayer(playerName);
                 }
                 self.game.?.board.printUnits(&self.game.?);
+            },
+            @intFromEnum(Message.Type.move) => {
+                var it = std.mem.tokenizeAny(u8, buff[1..], " \n");
+
+                const id = try std.fmt.parseUnsigned(u32, it.next().?, 10);
+                const x = try std.fmt.parseUnsigned(u32, it.next().?, 10);
+                const y = try std.fmt.parseUnsigned(u32, it.next().?, 10);
+
+                var unit = self.game.?.units.get(id).?;
+                self.game.?.board.getField(unit.x, unit.y).unit_id = null;
+                unit.x = x;
+                unit.y = y;
+                try self.game.?.units.put(id, unit);
+                self.game.?.board.getField(x, y).unit_id = id;
+            },
+            @intFromEnum(Message.Type.attack) => {
+                var it = std.mem.tokenizeAny(u8, buff[1..], " \n");
+
+                _ = try std.fmt.parseUnsigned(u32, it.next().?, 10); // id 1
+                const id2 = try std.fmt.parseUnsigned(u32, it.next().?, 10);
+                const hp = try std.fmt.parseUnsigned(u32, it.next().?, 10);
+
+                if (hp == 0) {
+                    const unit = self.game.?.units.get(id2).?;
+                    self.game.?.board.getField(unit.x, unit.y).unit_id = null;
+                    _ = self.game.?.units.remove(id2);
+                } else {
+                    var unit = self.game.?.units.get(id2).?;
+                    unit.hp = hp;
+                    try self.game.?.units.put(id2, unit);
+                }
+            },
+            @intFromEnum(Message.Type.mine) => {
+                var it = std.mem.tokenizeAny(u8, buff[1..], " \n");
+
+                const id = try std.fmt.parseUnsigned(u32, it.next().?, 10);
+                const hp = try std.fmt.parseUnsigned(u32, it.next().?, 10);
+                const unit = self.game.?.units.get(id).?;
+
+                self.game.?.board.getField(unit.x, unit.y).res_hp = if (hp == 0) null else hp;
             },
             @intFromEnum(Message.Type.join) => {
                 try self.game.?.newPlayer(buff[1..]);

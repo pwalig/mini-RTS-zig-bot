@@ -110,6 +110,7 @@ pub const Game = struct {
     }
 
     pub fn newPlayer(self: *Game, playerName: []const u8) !void {
+        std.debug.assert(self.findPlayer(playerName) == null);
         try self.players.append(try Player.init(playerName, self.nextPlayerId, self.players.allocator));
         self.nextPlayerId += 1;
     }
