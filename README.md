@@ -5,8 +5,11 @@ bot client for [mini-RTS-game](https://github.com/pwalig/mini-RTS-server)
 ```
 git clone https://github.com/pwalig/mini-RTS-zig-bot.git
 cd mini-RTS-zig-bot
-zig build
+zig build -Doptimize=ReleaseSmall
 ```
+Optionally set `-Doptimize=ReleaseFast`.  
+`ReleaseSmall` is prefered due to fairly large delay between game ticks, meaning zig-bot does not need to be super performant.
+
 For information about installing zig see: https://ziglang.org/learn/getting-started/
 
 # Run

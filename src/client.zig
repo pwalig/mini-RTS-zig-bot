@@ -82,7 +82,10 @@ pub const Client = struct {
             @intFromEnum(Message.Type.no) => {
                 if (self.state == State.Connected) {
                     const last = self.name.len - 1;
-                    if (self.name[last] == '~') return error.UnableToNameSelf;
+                    if (self.name[last] == '~') {
+                        try std.io.getStdOut().writer().print("unable to set a name\nlook into mini-rts-server .config file and make sure characters z, i, g, b, o, t are set as valid name characters or contact your mini-rts-server administrator\nalso make sure not too many zigbots are playing at the same time\n", .{});
+                        return error.UnableToNameSelf;
+                    }
                     self.name[last] += 1;
                     try self.send("n");
                     try self.send(&self.name);
