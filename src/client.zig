@@ -21,6 +21,7 @@ pub const Client = struct {
     pub fn init(hostname: []const u8, port: u16) !Client {
         const peer = try std.net.Address.parseIp4(hostname, port);
         const strm = try std.net.tcpConnectToAddress(peer);
+        try std.io.getStdOut().writer().print("connected to: {s}:{d}\n", .{ hostname, port });
         return Client{ .stream = strm, .state = State.Connected };
     }
 
@@ -74,6 +75,7 @@ pub const Client = struct {
             @intFromEnum(Message.Type.yes) => {
                 if (self.state == State.Connected) {
                     self.state = State.Ready;
+                    try std.io.getStdOut().writer().print("named self: {s}\njoining...\n", .{self.name});
                     try self.send("j\n");
                 }
             },
@@ -87,8 +89,13 @@ pub const Client = struct {
                     try self.send("\n");
                 }
             },
+            @intFromEnum(Message.Type.queue) => {
+                self.state = State.Queued;
+                try std.io.getStdOut().writer().print("waiting in queue ...\n", .{});
+            },
             @intFromEnum(Message.Type.players) => {
                 self.state = State.Joined;
+                try std.io.getStdOut().writer().print("joined the game\n", .{});
 
                 var it0 = std.mem.tokenizeAny(u8, buff[1..], ";");
                 const playerCount = try std.fmt.parseUnsigned(u32, it0.next().?, 10); // player count
@@ -151,8 +158,15 @@ pub const Client = struct {
             },
             @intFromEnum(Message.Type.leave) => {
                 const playerName = buff[1..]; // player name
-                print("{s} left\n", .{playerName});
-                try self.game.?.deletePlayer(playerName);
+                if (std.mem.eql(u8, playerName, &self.name)) {
+                    try std.io.getStdOut().writer().print("lost all units\nrejoining...\n", .{});
+                    self.game.?.clear();
+                    self.state = State.Connected;
+                    try self.send("j\n");
+                } else {
+                    print("{s} left\n", .{playerName});
+                    try self.game.?.deletePlayer(playerName);
+                }
                 self.game.?.board.printUnits(&self.game.?);
             },
             @intFromEnum(Message.Type.join) => {

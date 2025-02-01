@@ -25,6 +25,15 @@ pub const Board = struct {
         return &self.fields[x * self.y + y];
     }
 
+    pub fn clear(self: *Board) void {
+        for (0..self.y) |yi| {
+            for (0..self.x) |xi| {
+                self.fields[xi * self.y + yi].res_hp = null;
+                self.fields[xi * self.y + yi].unit_id = null;
+            }
+        }
+    }
+
     pub fn printUnits(self: *Board, game: *Game) void {
         for (0..self.y) |yi| {
             for (0..self.x) |xi| {
@@ -135,6 +144,19 @@ pub const Game = struct {
         }
     }
 
+    pub fn clear(self: *Game) void {
+        self.board.clear();
+
+        for (self.players.items) |*player| {
+            player.deinit();
+        }
+        self.players.shrinkRetainingCapacity(0);
+
+        const alloc = self.units.allocator;
+        self.units.deinit();
+        self.units = std.AutoHashMap(u32, Unit).init(alloc);
+    }
+
     pub fn newUnit(self: *Game, playerName: []const u8, unit: Unit) !void {
         var u = unit;
         var pl = self.findPlayer(playerName).?;
@@ -181,4 +203,16 @@ test "find_player" {
 
     const pl = game.findPlayer("abc").?;
     try std.testing.expect(std.mem.eql(u8, pl.name.items, "abc"));
+}
+
+test "clear" {
+    const ally = testing.allocator;
+    var game = try Game.init(10, 10, ally);
+    defer game.deinit();
+    try game.newPlayer("yeet");
+    try game.newUnit("yeet", Unit{ .hp = 100, .id = 0, .owner = undefined, .x = 0, .y = 0 });
+    game.clear();
+    try std.testing.expectEqual(0, game.players.items.len);
+    try std.testing.expectEqual(false, game.units.contains(0));
+    try std.testing.expectEqual(null, game.board.getField(0, 0).unit_id);
 }
