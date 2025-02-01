@@ -26,6 +26,10 @@ pub fn towards(sx: u32, sy: u32, tx: u32, ty: u32) coords {
     return cds;
 }
 
+pub fn same(x1: u32, y1: u32, x2: u32, y2: u32) bool {
+    return (x1 == x2 and y1 == y2);
+}
+
 pub const coords = struct {
     x: u32,
     y: u32,
@@ -36,5 +40,9 @@ pub const coords = struct {
 
     pub fn towards(sc: coords, tc: coords) coords {
         return ops.towards(sc.x, sc.y, tc.x, tc.y);
+    }
+
+    pub fn same(c1: coords, c2: coords) bool {
+        return (c1.x == c2.x and c1.y == c2.y);
     }
 };

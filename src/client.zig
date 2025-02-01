@@ -167,13 +167,28 @@ pub const Client = struct {
                 if (std.mem.eql(u8, playerName, &self.name)) {
                     try std.io.getStdOut().writer().print("lost all units\nrejoining...\n", .{});
                     self.game.?.clear();
-                    self.state = State.Connected;
+                    self.state = State.Ready;
                     try self.send("j\n");
                 } else {
                     print("{s} left\n", .{playerName});
                     try self.game.?.deletePlayer(playerName);
                 }
                 self.game.?.board.printUnits(&self.game.?);
+            },
+            @intFromEnum(Message.Type.lost) => {
+                const playerName = buff[1..]; // player name
+                try std.io.getStdOut().writer().print("lost the game to {s}\nrejoining...\n", .{playerName});
+                self.game.?.clear();
+                self.state = State.Ready;
+                try self.send("j\n");
+            },
+            @intFromEnum(Message.Type.win) => {
+                const playerName = buff[1..]; // player name
+                std.debug.assert(std.mem.eql(u8, playerName, &self.name));
+                try std.io.getStdOut().writer().print("won the game\nrejoining...\n", .{});
+                self.game.?.clear();
+                self.state = State.Ready;
+                try self.send("j\n");
             },
             @intFromEnum(Message.Type.move) => {
                 var it = std.mem.tokenizeAny(u8, buff[1..], " \n");
@@ -223,14 +238,19 @@ pub const Client = struct {
                         const cds = coordOps.towards(unit.*.x, unit.*.y, fc.x, fc.y);
                         const max_len = 10; // TO DO figure out max_len from config sent by server
                         var buf: [max_len]u8 = undefined;
-                        try self.send("m");
-                        try self.send(try std.fmt.bufPrint(&buf, "{}", .{unit.*.id}));
-                        try self.send(" ");
-                        try self.send(try std.fmt.bufPrint(&buf, "{}", .{cds.x}));
-                        try self.send(" ");
-                        try self.send(try std.fmt.bufPrint(&buf, "{}", .{cds.y}));
-                        try self.send("\n");
-                        print("move from {d} {d}\n", .{ unit.*.x, unit.*.y });
+                        if (cds.x == unit.*.x and cds.y == unit.*.y) {
+                            try self.send("d");
+                            try self.send(try std.fmt.bufPrint(&buf, "{}", .{unit.*.id}));
+                            try self.send("\n");
+                        } else {
+                            try self.send("m");
+                            try self.send(try std.fmt.bufPrint(&buf, "{}", .{unit.*.id}));
+                            try self.send(" ");
+                            try self.send(try std.fmt.bufPrint(&buf, "{}", .{cds.x}));
+                            try self.send(" ");
+                            try self.send(try std.fmt.bufPrint(&buf, "{}", .{cds.y}));
+                            try self.send("\n");
+                        }
                     }
                 }
             },
