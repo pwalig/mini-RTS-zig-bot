@@ -4,7 +4,7 @@ const print = std.debug.print;
 const distance = @import("coordinateOps.zig").distance;
 const coords = @import("coordinateOps.zig").coords;
 
-pub const Unit = struct { id: u32 = undefined, hp: u32 = undefined, x: u32 = undefined, y: u32 = undefined, owner: u32 = undefined };
+pub const Unit = struct { id: u32 = undefined, hp: u32 = undefined, x: u32 = undefined, y: u32 = undefined, owner: ?*Player = undefined };
 
 pub const Field = struct { unit_id: ?u32, res_hp: ?u32 };
 
@@ -67,7 +67,7 @@ pub const Board = struct {
             for (0..self.x) |xi| {
                 const f = self.getField(@intCast(xi), @intCast(yi));
                 if (f.unit_id) |id| {
-                    print("{d}", .{game.units.get(id).?.owner});
+                    print("{c}", .{game.units.get(id).?.owner.?.name.items[0]});
                 } else print("-", .{});
             }
             print("\n", .{});
@@ -93,18 +93,12 @@ pub const Board = struct {
 
 pub const Player = struct {
     name: std.ArrayList(u8),
-    units: std.AutoHashMap(u32, Unit),
-    id: u32,
+    units: std.AutoHashMap(u32, *Unit),
 
-    pub fn init(name: []const u8, id: u32, allocator: std.mem.Allocator) !Player {
-        var p = Player{ .name = try std.ArrayList(u8).initCapacity(allocator, name.len), .units = std.AutoHashMap(u32, Unit).init(allocator), .id = id };
+    pub fn init(name: []const u8, allocator: std.mem.Allocator) !Player {
+        var p = Player{ .name = try std.ArrayList(u8).initCapacity(allocator, name.len), .units = std.AutoHashMap(u32, *Unit).init(allocator) };
         p.name.appendSliceAssumeCapacity(name);
         return p;
-    }
-
-    pub fn newUnit(self: *Player, unit: *Unit) !void {
-        unit.owner = self.id;
-        try self.units.put(unit.id, unit.*);
     }
 
     pub fn deinit(self: *Player) void {
@@ -115,23 +109,23 @@ pub const Player = struct {
 
 pub const Game = struct {
     board: Board,
-    players: std.ArrayList(Player),
-    units: std.AutoHashMap(u32, Unit),
-    nextPlayerId: u32 = 0,
+    players: std.ArrayList(*Player),
+    units: std.AutoHashMap(u32, *Unit),
+    allocator: std.mem.Allocator,
 
     pub fn init(x: u32, y: u32, allocator: std.mem.Allocator) !Game {
-        return Game{ .board = try Board.init(x, y, allocator), .units = std.AutoHashMap(u32, Unit).init(allocator), .players = std.ArrayList(Player).init(allocator) };
+        return Game{ .board = try Board.init(x, y, allocator), .units = std.AutoHashMap(u32, *Unit).init(allocator), .players = std.ArrayList(*Player).init(allocator), .allocator = allocator };
     }
 
     pub fn findPlayer(self: *Game, playerName: []const u8) ?*Player {
-        for (self.players.items) |*player| {
+        for (self.players.items) |player| {
             if (std.mem.eql(u8, player.name.items, playerName)) return player;
         }
         return null;
     }
 
-    pub fn findPlayerArrayPosition(self: *Game, playerName: []const u8) ?u32 {
-        for (self.players.items, 0..) |*player, id| {
+    fn findPlayerArrayPosition(self: *Game, playerName: []const u8) ?u32 {
+        for (self.players.items, 0..) |player, id| {
             if (std.mem.eql(u8, player.name.items, playerName)) return @intCast(id);
         }
         return null;
@@ -139,68 +133,98 @@ pub const Game = struct {
 
     pub fn newPlayer(self: *Game, playerName: []const u8) !void {
         std.debug.assert(self.findPlayer(playerName) == null);
-        try self.players.append(try Player.init(playerName, self.nextPlayerId, self.players.allocator));
-        self.nextPlayerId += 1;
-    }
 
-    pub fn printPlayerNames(self: *Game) void {
-        print("players:\n", .{});
-        for (self.players.items) |*player| {
-            print("{s} id:{d}\n", .{ player.name.items, player.id });
-        }
+        const player = try self.allocator.create(Player);
+        errdefer self.allocator.destroy(player);
+        player.* = try Player.init(playerName, self.players.allocator);
+
+        try self.players.append(player);
     }
 
     pub fn deletePlayer(self: *Game, playerName: []const u8) error{OutOfMemory}!void {
         const arid = self.findPlayerArrayPosition(playerName).?;
-        var pl = self.players.items[arid];
-        const pid = pl.id;
-        pl.deinit();
-        _ = self.players.orderedRemove(arid);
+        var player = self.players.items[arid];
 
-        var toRemove = std.ArrayList(u32).init(self.units.allocator);
+        var toRemove = std.ArrayList(u32).init(self.allocator);
         defer toRemove.deinit();
 
         var it = self.units.valueIterator();
         while (it.next()) |unit| {
-            if (unit.owner == pid) try toRemove.append(unit.id);
+            if (unit.*.owner == player) try toRemove.append(unit.*.id);
         }
 
         for (toRemove.items) |uid| {
-            const x = self.units.get(uid).?.x;
-            const y = self.units.get(uid).?.y;
-            self.board.getField(x, y).unit_id = null;
-            _ = self.units.remove(uid);
+            self.deleteUnit(uid);
         }
+
+        player.deinit();
+        self.allocator.destroy(player);
+        _ = self.players.orderedRemove(arid);
+    }
+
+    pub fn printPlayerNames(self: *Game) void {
+        print("players:\n", .{});
+        for (self.players.items) |player| {
+            print("{s}\n", .{player.name.items});
+        }
+    }
+
+    /// unit paremeter should be partially filed (with hp, x, y and id, owner should be left undefined)
+    pub fn newUnit(self: *Game, playerName: []const u8, unit: Unit) !void {
+        std.debug.assert(self.findPlayer(playerName) != null);
+
+        const unitPtr = try self.allocator.create(Unit);
+        errdefer self.allocator.destroy(unitPtr);
+        unitPtr.* = unit;
+
+        var player = self.findPlayer(playerName).?;
+        unitPtr.owner = player;
+        try player.units.put(unitPtr.id, unitPtr);
+        try self.units.put(unitPtr.id, unitPtr);
+        self.board.getField(unitPtr.x, unitPtr.y).unit_id = unitPtr.id;
+    }
+
+    pub fn deleteUnit(self: *Game, id: u32) void {
+        const unit = self.units.get(id).?;
+        const player = unit.owner.?;
+
+        self.board.getField(unit.x, unit.y).unit_id = null;
+        _ = player.units.remove(unit.id);
+        _ = self.units.remove(id);
+
+        self.allocator.destroy(unit);
     }
 
     pub fn clear(self: *Game) void {
-        self.board.clear();
-
-        for (self.players.items) |*player| {
+        for (self.players.items) |player| {
             player.deinit();
+            self.allocator.destroy(player);
         }
         self.players.shrinkRetainingCapacity(0);
 
-        const alloc = self.units.allocator;
+        var it = self.units.valueIterator();
+        while (it.next()) |unit| {
+            self.allocator.destroy(unit.*);
+        }
         self.units.deinit();
-        self.units = std.AutoHashMap(u32, Unit).init(alloc);
-    }
+        self.units = std.AutoHashMap(u32, *Unit).init(self.allocator);
 
-    pub fn newUnit(self: *Game, playerName: []const u8, unit: Unit) !void {
-        var u = unit;
-        var pl = self.findPlayer(playerName).?;
-        try pl.newUnit(&u);
-        try self.units.put(u.id, u);
-        self.board.getField(u.x, u.y).unit_id = u.id;
+        self.board.clear();
     }
 
     pub fn deinit(self: *Game) void {
-        for (self.players.items) |*player| {
+        for (self.players.items) |player| {
             player.deinit();
+            self.allocator.destroy(player);
         }
         self.players.deinit();
 
+        var it = self.units.valueIterator();
+        while (it.next()) |unit| {
+            self.allocator.destroy(unit.*);
+        }
         self.units.deinit();
+
         self.board.deinit();
     }
 };

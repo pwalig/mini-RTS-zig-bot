@@ -182,11 +182,10 @@ pub const Client = struct {
                 const x = try std.fmt.parseUnsigned(u32, it.next().?, 10);
                 const y = try std.fmt.parseUnsigned(u32, it.next().?, 10);
 
-                var unit = self.game.?.units.get(id).?;
+                const unit = self.game.?.units.get(id).?;
                 self.game.?.board.getField(unit.x, unit.y).unit_id = null;
                 unit.x = x;
                 unit.y = y;
-                try self.game.?.units.put(id, unit);
                 self.game.?.board.getField(x, y).unit_id = id;
             },
             @intFromEnum(Message.Type.attack) => {
@@ -197,13 +196,9 @@ pub const Client = struct {
                 const hp = try std.fmt.parseUnsigned(u32, it.next().?, 10);
 
                 if (hp == 0) {
-                    const unit = self.game.?.units.get(id2).?;
-                    self.game.?.board.getField(unit.x, unit.y).unit_id = null;
-                    _ = self.game.?.units.remove(id2);
+                    self.game.?.deleteUnit(id2);
                 } else {
-                    var unit = self.game.?.units.get(id2).?;
-                    unit.hp = hp;
-                    try self.game.?.units.put(id2, unit);
+                    self.game.?.units.get(id2).?.hp = hp;
                 }
             },
             @intFromEnum(Message.Type.mine) => {
@@ -223,19 +218,19 @@ pub const Client = struct {
                 const player = self.game.?.findPlayer(&self.name).?;
                 var it = player.units.valueIterator();
                 while (it.next()) |unit| {
-                    const fieldc = self.game.?.board.getClosestResourceFieldPosition(unit.x, unit.y);
+                    const fieldc = self.game.?.board.getClosestResourceFieldPosition(unit.*.x, unit.*.y);
                     if (fieldc) |fc| {
-                        const cds = coordOps.towards(unit.x, unit.y, fc.x, fc.y);
+                        const cds = coordOps.towards(unit.*.x, unit.*.y, fc.x, fc.y);
                         const max_len = 10; // TO DO figure out max_len from config sent by server
                         var buf: [max_len]u8 = undefined;
                         try self.send("m");
-                        try self.send(try std.fmt.bufPrint(&buf, "{}", .{unit.id}));
+                        try self.send(try std.fmt.bufPrint(&buf, "{}", .{unit.*.id}));
                         try self.send(" ");
                         try self.send(try std.fmt.bufPrint(&buf, "{}", .{cds.x}));
                         try self.send(" ");
                         try self.send(try std.fmt.bufPrint(&buf, "{}", .{cds.y}));
                         try self.send("\n");
-                        print("move from {d} {d}\n", .{ unit.x, unit.y });
+                        print("move from {d} {d}\n", .{ unit.*.x, unit.*.y });
                     }
                 }
             },
