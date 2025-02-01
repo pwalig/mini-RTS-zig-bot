@@ -27,7 +27,7 @@ pub const Board = struct {
         return &self.fields[x * self.y + y];
     }
 
-    pub fn getClosestResourceFieldPosition(self: *Board, x: u32, y: u32) ?coords {
+    pub fn getClosestUnoccupiedResourceFieldPosition(self: *Board, x: u32, y: u32) ?coords {
         // TO DO write optimal version
         //var dist: u32 = 0;
         //const curField = self.getField(x, y);
@@ -41,7 +41,7 @@ pub const Board = struct {
         for (0..self.y) |yi| {
             for (0..self.x) |xi| {
                 const f = self.getField(@intCast(xi), @intCast(yi));
-                if (f.res_hp != null) {
+                if (f.res_hp != null and f.unit_id == null) {
                     const dist = distance(x, y, @intCast(xi), @intCast(yi));
                     if (dist < minDist) {
                         minDist = dist;
@@ -63,6 +63,7 @@ pub const Board = struct {
     }
 
     pub fn printUnits(self: *Board, game: *Game) void {
+        print("units:\n", .{});
         for (0..self.y) |yi| {
             for (0..self.x) |xi| {
                 const f = self.getField(@intCast(xi), @intCast(yi));
@@ -75,6 +76,7 @@ pub const Board = struct {
     }
 
     pub fn printResources(self: *Board) void {
+        print("resources:\n", .{});
         for (0..self.y) |yi| {
             for (0..self.x) |xi| {
                 const f = self.getField(@intCast(xi), @intCast(yi));

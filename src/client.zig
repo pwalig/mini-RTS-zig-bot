@@ -41,7 +41,7 @@ pub const Client = struct {
             try std.io.getStdOut().writer().print("server closed the connection\n", .{});
             return false;
         }
-        print("MSG: {s}\n", .{buff.items});
+        // print("MSG: {s}\n", .{buff.items});
 
         try self.parse(buff.items, allocator);
         return true;
@@ -70,7 +70,6 @@ pub const Client = struct {
                     try self.send("n");
                     try self.send(&(self.name));
                     try self.send("\n");
-                    print("x: {d}, y: {d}\n", .{ self.game.?.board.x, self.game.?.board.y });
                 }
             },
             @intFromEnum(Message.Type.yes) => {
@@ -119,8 +118,6 @@ pub const Client = struct {
                         unit.y = try std.fmt.parseUnsigned(u32, it3.next().?, 10);
                         unit.hp = try std.fmt.parseUnsigned(u32, it3.next().?, 10);
                         try self.game.?.newUnit(playerName, unit);
-
-                        print("{d} {d} {d} {d}\n", .{ self.game.?.units.get(unit.id).?.id, unit.x, self.game.?.units.get(unit.id).?.y, unit.hp });
                     }
                 }
                 self.game.?.printPlayerNames();
@@ -148,7 +145,6 @@ pub const Client = struct {
                 const hp = try std.fmt.parseUnsigned(u32, it.next().?, 10);
 
                 self.game.?.board.getField(x, y).res_hp = hp;
-                // self.game.?.board.printResources();
             },
             @intFromEnum(Message.Type.unit) => {
                 var it = std.mem.tokenizeAny(u8, buff[1..], " \n");
@@ -158,9 +154,7 @@ pub const Client = struct {
                 const x = try std.fmt.parseUnsigned(u32, it.next().?, 10);
                 const y = try std.fmt.parseUnsigned(u32, it.next().?, 10);
 
-                print("{s} got new unit\n", .{playerName});
                 try self.game.?.newUnit(playerName, Unit{ .id = id, .x = x, .y = y, .hp = 100 });
-                self.game.?.board.printUnits(&self.game.?);
             },
             @intFromEnum(Message.Type.leave) => {
                 const playerName = buff[1..]; // player name
@@ -170,10 +164,8 @@ pub const Client = struct {
                     self.state = State.Ready;
                     try self.send("j\n");
                 } else {
-                    print("{s} left\n", .{playerName});
                     try self.game.?.deletePlayer(playerName);
                 }
-                self.game.?.board.printUnits(&self.game.?);
             },
             @intFromEnum(Message.Type.lost) => {
                 const playerName = buff[1..]; // player name
@@ -227,22 +219,22 @@ pub const Client = struct {
             },
             @intFromEnum(Message.Type.join) => {
                 try self.game.?.newPlayer(buff[1..]);
-                print("{s} joined\n", .{buff[1..]});
             },
             @intFromEnum(Message.Type.tick) => {
                 const player = self.game.?.findPlayer(&self.name).?;
                 var it = player.units.valueIterator();
                 while (it.next()) |unit| {
-                    const fieldc = self.game.?.board.getClosestResourceFieldPosition(unit.*.x, unit.*.y);
-                    if (fieldc) |fc| {
-                        const cds = coordOps.towards(unit.*.x, unit.*.y, fc.x, fc.y);
-                        const max_len = 10; // TO DO figure out max_len from config sent by server
-                        var buf: [max_len]u8 = undefined;
-                        if (cds.x == unit.*.x and cds.y == unit.*.y) {
-                            try self.send("d");
-                            try self.send(try std.fmt.bufPrint(&buf, "{}", .{unit.*.id}));
-                            try self.send("\n");
-                        } else {
+                    const max_len = 10; // TO DO figure out max_len from config sent by server
+                    var buf: [max_len]u8 = undefined;
+
+                    if (self.game.?.board.getField(unit.*.x, unit.*.y).res_hp != null) {
+                        try self.send("d");
+                        try self.send(try std.fmt.bufPrint(&buf, "{}", .{unit.*.id}));
+                        try self.send("\n");
+                    } else {
+                        const fieldc = self.game.?.board.getClosestUnoccupiedResourceFieldPosition(unit.*.x, unit.*.y);
+                        if (fieldc) |fc| {
+                            const cds = coordOps.towards(unit.*.x, unit.*.y, fc.x, fc.y);
                             try self.send("m");
                             try self.send(try std.fmt.bufPrint(&buf, "{}", .{unit.*.id}));
                             try self.send(" ");
@@ -254,9 +246,7 @@ pub const Client = struct {
                     }
                 }
             },
-            else => {
-                print("got invalid message type character {c}\n", .{t});
-            },
+            else => {},
         }
     }
 
