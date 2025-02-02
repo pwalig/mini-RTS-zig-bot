@@ -3,6 +3,7 @@ const testing = std.testing;
 const print = std.debug.print;
 const distance = @import("coordinateOps.zig").distance;
 const coords = @import("coordinateOps.zig").coords;
+const Config = @import("Config.zig");
 
 pub const Unit = struct {
     id: u32 = undefined,
@@ -116,19 +117,6 @@ pub const Player = struct {
         self.name.deinit();
         self.units.deinit();
     }
-};
-
-pub const Config = struct {
-    millis: u32,
-    maxPlayers: u32,
-    boardX: u32,
-    boardY: u32,
-    startResources: u32,
-    unitsToWin: u32,
-    resourceHp: u32,
-    unitHp: u32,
-    unitDamage: u32,
-    allowedNameCharacters: []const u8,
 };
 
 pub const Game = struct {
@@ -275,6 +263,7 @@ pub const Game = struct {
         self.units.deinit();
 
         self.board.deinit();
+        self.allocator.free(self.allowedNameCharacters);
     }
 };
 

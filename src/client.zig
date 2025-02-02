@@ -6,8 +6,9 @@ const Message = @import("message.zig");
 const game = @import("game.zig");
 const Game = game.Game;
 const Unit = game.Unit;
-const Config = game.Config;
+const Config = @import("Config.zig");
 const coordOps = @import("coordinateOps.zig");
+const NameIterator = @import("NameIterator.zig");
 
 const singleReadSize = 50;
 
@@ -17,7 +18,7 @@ pub const Client = struct {
     stream: Stream,
     state: State,
     game: ?Game = null,
-    name: [7]u8 = [7]u8{ 'z', 'i', 'g', 'b', 'o', 't', '!' },
+    nameIter: NameIterator = undefined,
 
     /// sets up TCP connection
     /// after init .game is still null, .game will be initialized in .parse() if client recieves c message from server
@@ -79,29 +80,34 @@ pub const Client = struct {
                     };
 
                     self.game = try Game.init(c, allocator);
+
+                    self.nameIter = NameIterator.init(self.game.?.allowedNameCharacters).?;
+
                     try self.send("n");
-                    try self.send(&(self.name));
+                    try self.send(self.nameIter.current());
+                    print("requested name: {s}\n", .{self.nameIter.current()});
                     try self.send("\n");
                 }
             },
             @intFromEnum(Message.Type.yes) => {
                 if (self.state == State.Connected) {
                     self.state = State.Ready;
-                    try std.io.getStdOut().writer().print("named self: {s}\njoining...\n", .{self.name});
+                    try std.io.getStdOut().writer().print("named self: {s}\njoining...\n", .{self.nameIter.current()});
                     try self.send("j\n");
                 }
             },
             @intFromEnum(Message.Type.no) => {
                 if (self.state == State.Connected) {
-                    const last = self.name.len - 1;
-                    if (self.name[last] == '~') {
+                    const newName = self.nameIter.next();
+                    if (newName) |name| {
+                        try self.send("n");
+                        try self.send(name);
+                        try self.send("\n");
+                        print("requested name: {s}\n", .{name});
+                    } else {
                         try std.io.getStdOut().writer().print("unable to set a name\nlook into mini-rts-server .config file and make sure characters z, i, g, b, o, t are set as valid name characters or contact your mini-rts-server administrator\nalso make sure not too many zigbots are playing at the same time\n", .{});
                         return error.UnableToNameSelf;
                     }
-                    self.name[last] += 1;
-                    try self.send("n");
-                    try self.send(&self.name);
-                    try self.send("\n");
                 }
             },
             @intFromEnum(Message.Type.queue) => {
@@ -169,11 +175,11 @@ pub const Client = struct {
                 const x = try std.fmt.parseUnsigned(u32, it.next().?, 10);
                 const y = try std.fmt.parseUnsigned(u32, it.next().?, 10);
 
-                try self.game.?.newUnit(playerName, Unit{ .id = id, .x = x, .y = y, .hp = 100 });
+                try self.game.?.newUnit(playerName, Unit{ .id = id, .x = x, .y = y, .hp = self.game.?.unitHp });
             },
             @intFromEnum(Message.Type.leave) => {
                 const playerName = buff[1..]; // player name
-                if (std.mem.eql(u8, playerName, &self.name)) {
+                if (std.mem.eql(u8, playerName, self.nameIter.current())) {
                     try std.io.getStdOut().writer().print("lost all units\nrejoining...\n", .{});
                     self.game.?.clear();
                     self.state = State.Ready;
@@ -191,7 +197,7 @@ pub const Client = struct {
             },
             @intFromEnum(Message.Type.win) => {
                 const playerName = buff[1..]; // player name
-                std.debug.assert(std.mem.eql(u8, playerName, &self.name));
+                std.debug.assert(std.mem.eql(u8, playerName, self.nameIter.current()));
                 try std.io.getStdOut().writer().print("won the game\nrejoining...\n", .{});
                 self.game.?.clear();
                 self.state = State.Ready;
@@ -236,7 +242,7 @@ pub const Client = struct {
                 try self.game.?.newPlayer(buff[1..]);
             },
             @intFromEnum(Message.Type.tick) => {
-                const player = self.game.?.findPlayer(&self.name).?;
+                const player = self.game.?.findPlayer(self.nameIter.current()).?;
                 var it = player.units.valueIterator();
                 while (it.next()) |unit| {
                     const max_len = 10; // TO DO figure out max_len from config sent by server
@@ -273,6 +279,7 @@ pub const Client = struct {
 
     pub fn deinit(self: *Client) void {
         self.stream.close();
+        self.game.?.deinit();
     }
 };
 
