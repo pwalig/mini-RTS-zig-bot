@@ -6,7 +6,7 @@ const coords = @import("coordinateOps.zig").coords;
 
 pub const Unit = struct { id: u32 = undefined, hp: u32 = undefined, x: u32 = undefined, y: u32 = undefined, owner: ?*Player = undefined };
 
-pub const Field = struct { unit_id: ?u32, res_hp: ?u32 };
+pub const Field = struct { unit: ?*Unit, res_hp: ?u32 };
 
 pub const Board = struct {
     fields: []Field,
@@ -18,7 +18,7 @@ pub const Board = struct {
         const b = Board{ .fields = try allocator.alloc(Field, x * y), .x = x, .y = y, .allocator = allocator };
         errdefer allocator.free(b.fields);
         for (b.fields) |*f| {
-            f.* = Field{ .unit_id = null, .res_hp = null };
+            f.* = Field{ .unit = null, .res_hp = null };
         }
         return b;
     }
@@ -41,7 +41,7 @@ pub const Board = struct {
         for (0..self.y) |yi| {
             for (0..self.x) |xi| {
                 const f = self.getField(@intCast(xi), @intCast(yi));
-                if (f.res_hp != null and f.unit_id == null) {
+                if (f.res_hp != null and f.unit == null) {
                     const dist = distance(x, y, @intCast(xi), @intCast(yi));
                     if (dist < minDist) {
                         minDist = dist;
@@ -57,18 +57,18 @@ pub const Board = struct {
         for (0..self.y) |yi| {
             for (0..self.x) |xi| {
                 self.fields[xi * self.y + yi].res_hp = null;
-                self.fields[xi * self.y + yi].unit_id = null;
+                self.fields[xi * self.y + yi].unit = null;
             }
         }
     }
 
-    pub fn printUnits(self: *Board, game: *Game) void {
+    pub fn printUnits(self: *Board) void {
         print("units:\n", .{});
         for (0..self.y) |yi| {
             for (0..self.x) |xi| {
                 const f = self.getField(@intCast(xi), @intCast(yi));
-                if (f.unit_id) |id| {
-                    print("{c}", .{game.units.get(id).?.owner.?.name.items[0]});
+                if (f.unit) |u| {
+                    print("{c}", .{u.owner.?.name.items[0]});
                 } else print("-", .{});
             }
             print("\n", .{});
@@ -183,14 +183,14 @@ pub const Game = struct {
         unitPtr.owner = player;
         try player.units.put(unitPtr.id, unitPtr);
         try self.units.put(unitPtr.id, unitPtr);
-        self.board.getField(unitPtr.x, unitPtr.y).unit_id = unitPtr.id;
+        self.board.getField(unitPtr.x, unitPtr.y).unit = unitPtr;
     }
 
     pub fn deleteUnit(self: *Game, id: u32) void {
         const unit = self.units.get(id).?;
         const player = unit.owner.?;
 
-        self.board.getField(unit.x, unit.y).unit_id = null;
+        self.board.getField(unit.x, unit.y).unit = null;
         _ = player.units.remove(unit.id);
         _ = self.units.remove(id);
 
@@ -269,5 +269,5 @@ test "clear" {
     game.clear();
     try std.testing.expectEqual(0, game.players.items.len);
     try std.testing.expectEqual(false, game.units.contains(0));
-    try std.testing.expectEqual(null, game.board.getField(0, 0).unit_id);
+    try std.testing.expectEqual(null, game.board.getField(0, 0).unit);
 }

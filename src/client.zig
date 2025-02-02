@@ -124,7 +124,7 @@ pub const Client = struct {
                     }
                 }
                 self.game.?.printPlayerNames();
-                self.game.?.board.printUnits(&self.game.?);
+                self.game.?.board.printUnits();
             },
             @intFromEnum(Message.Type.resources) => {
                 var it0 = std.mem.tokenizeAny(u8, buff[1..], ";");
@@ -193,10 +193,10 @@ pub const Client = struct {
                 const y = try std.fmt.parseUnsigned(u32, it.next().?, 10);
 
                 const unit = self.game.?.units.get(id).?;
-                self.game.?.board.getField(unit.x, unit.y).unit_id = null;
+                self.game.?.board.getField(unit.x, unit.y).unit = null;
                 unit.x = x;
                 unit.y = y;
-                self.game.?.board.getField(x, y).unit_id = id;
+                self.game.?.board.getField(x, y).unit = unit;
             },
             @intFromEnum(Message.Type.attack) => {
                 var it = std.mem.tokenizeAny(u8, buff[1..], " \n");
