@@ -3,8 +3,10 @@ const Stream = std.net.Stream;
 const Allocator = std.mem.Allocator;
 const print = std.debug.print;
 const Message = @import("message.zig");
-const Game = @import("game.zig").Game;
-const Unit = @import("game.zig").Unit;
+const game = @import("game.zig");
+const Game = game.Game;
+const Unit = game.Unit;
+const Config = game.Config;
 const coordOps = @import("coordinateOps.zig");
 
 const singleReadSize = 50;
@@ -61,12 +63,22 @@ pub const Client = struct {
         switch (t) {
             @intFromEnum(Message.Type.config) => {
                 if (self.state == State.Connected) {
-                    var it = std.mem.tokenizeAny(u8, buff[1..], " ");
-                    _ = it.next(); // skip millis
-                    _ = it.next(); // skip max players
-                    const x = try std.fmt.parseUnsigned(u32, it.next().?, 10);
-                    const y = try std.fmt.parseUnsigned(u32, it.next().?, 10);
-                    self.game = try Game.init(x, y, allocator);
+                    var it = std.mem.tokenizeAny(u8, buff[1..], " \n");
+
+                    const c = Config{
+                        .millis = try std.fmt.parseUnsigned(u32, it.next().?, 10),
+                        .maxPlayers = try std.fmt.parseUnsigned(u32, it.next().?, 10),
+                        .boardX = try std.fmt.parseUnsigned(u32, it.next().?, 10),
+                        .boardY = try std.fmt.parseUnsigned(u32, it.next().?, 10),
+                        .unitsToWin = try std.fmt.parseUnsigned(u32, it.next().?, 10),
+                        .startResources = try std.fmt.parseUnsigned(u32, it.next().?, 10),
+                        .resourceHp = try std.fmt.parseUnsigned(u32, it.next().?, 10),
+                        .unitHp = try std.fmt.parseUnsigned(u32, it.next().?, 10),
+                        .unitDamage = try std.fmt.parseUnsigned(u32, it.next().?, 10),
+                        .allowedNameCharacters = it.next().?,
+                    };
+
+                    self.game = try Game.init(c, allocator);
                     try self.send("n");
                     try self.send(&(self.name));
                     try self.send("\n");

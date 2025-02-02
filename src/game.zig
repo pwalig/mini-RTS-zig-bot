@@ -4,9 +4,18 @@ const print = std.debug.print;
 const distance = @import("coordinateOps.zig").distance;
 const coords = @import("coordinateOps.zig").coords;
 
-pub const Unit = struct { id: u32 = undefined, hp: u32 = undefined, x: u32 = undefined, y: u32 = undefined, owner: ?*Player = undefined };
+pub const Unit = struct {
+    id: u32 = undefined,
+    hp: u32 = undefined,
+    x: u32 = undefined,
+    y: u32 = undefined,
+    owner: ?*Player = undefined,
+};
 
-pub const Field = struct { unit: ?*Unit, res_hp: ?u32 };
+pub const Field = struct {
+    unit: ?*Unit,
+    res_hp: ?u32,
+};
 
 pub const Board = struct {
     fields: []Field,
@@ -109,14 +118,52 @@ pub const Player = struct {
     }
 };
 
+pub const Config = struct {
+    millis: u32,
+    maxPlayers: u32,
+    boardX: u32,
+    boardY: u32,
+    startResources: u32,
+    unitsToWin: u32,
+    resourceHp: u32,
+    unitHp: u32,
+    unitDamage: u32,
+    allowedNameCharacters: []const u8,
+};
+
 pub const Game = struct {
     board: Board,
     players: std.ArrayList(*Player),
     units: std.AutoHashMap(u32, *Unit),
+
+    unitsToWin: u32,
+    resourceHp: u32,
+    unitHp: u32,
+    unitDamage: u32,
+    allowedNameCharacters: []const u8,
+
     allocator: std.mem.Allocator,
 
-    pub fn init(x: u32, y: u32, allocator: std.mem.Allocator) !Game {
-        return Game{ .board = try Board.init(x, y, allocator), .units = std.AutoHashMap(u32, *Unit).init(allocator), .players = std.ArrayList(*Player).init(allocator), .allocator = allocator };
+    pub fn init(config: Config, allocator: std.mem.Allocator) !Game {
+        var b = try Board.init(config.boardX, config.boardY, allocator);
+        errdefer b.deinit();
+
+        var p = try std.ArrayList(*Player).initCapacity(allocator, config.maxPlayers);
+        errdefer p.deinit();
+
+        return Game{
+            .board = b,
+            .units = std.AutoHashMap(u32, *Unit).init(allocator),
+            .players = p,
+
+            .unitsToWin = config.unitsToWin,
+            .resourceHp = config.resourceHp,
+            .unitHp = config.unitHp,
+            .unitDamage = config.unitDamage,
+            .allowedNameCharacters = try allocator.dupe(u8, config.allowedNameCharacters),
+
+            .allocator = allocator,
+        };
     }
 
     pub fn findPlayer(self: *Game, playerName: []const u8) ?*Player {
