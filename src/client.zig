@@ -19,35 +19,47 @@ pub const Client = struct {
     state: State,
     game: ?Game = null,
     nameIter: NameIterator = undefined,
+    gamesLeft: ?u32 = undefined,
+    shouldRun: bool = true,
 
     /// sets up TCP connection
     /// after init .game is still null, .game will be initialized in .parse() if client recieves c message from server
-    pub fn init(hostname: []const u8, port: u16) !Client {
+    pub fn init(hostname: []const u8, port: u16, gamesToPlay: ?u32) !Client {
         const peer = try std.net.Address.parseIp4(hostname, port);
         const strm = try std.net.tcpConnectToAddress(peer);
         try std.io.getStdOut().writer().print("connected to: {s}:{d}\n", .{ hostname, port });
-        return Client{ .stream = strm, .state = State.Connected };
+        return Client{
+            .stream = strm,
+            .state = State.Connected,
+            .gamesLeft = gamesToPlay,
+        };
     }
 
     /// reads from socket stream until delimiter is found
     /// if message delimiter \n is found => calls self.parse()
     /// should block until finds delimiter, but instead throws error if delimiter not found in stream - TO FIX
-    pub fn read(self: *Client, allocator: Allocator) !bool {
+    pub fn read(self: *Client, allocator: Allocator) !void {
         var buff = std.ArrayList(u8).init(allocator);
         defer buff.deinit();
-        self.stream.reader().streamUntilDelimiter(buff.writer(), '\n', null) catch {
-            try std.io.getStdOut().writer().print("server closed the connection\n", .{});
-            return false;
-        };
 
-        if (buff.items.len == 0) {
-            try std.io.getStdOut().writer().print("server closed the connection\n", .{});
-            return false;
+        var run = true;
+        var prevLen = buff.items.len;
+        while (run) {
+            run = false;
+            self.stream.reader().streamUntilDelimiter(buff.writer(), '\n', null) catch |err| {
+                if (err == error.EndOfStream) {
+                    if (buff.items.len == prevLen) { // no new bytes found - meaning received 0 bytes in last read - meaning server closed connection
+                        try std.io.getStdOut().writer().print("server closed the connection\n", .{});
+                        self.shouldRun = false;
+                        return;
+                    } else run = true; // end of stream reached, got some bytes, but no delimiter (hopefully remaining bytes will get there soon)
+                } else return err;
+            };
+            prevLen = buff.items.len;
         }
         // print("MSG: {s}\n", .{buff.items});
 
         try self.parse(buff.items, allocator);
-        return true;
     }
 
     /// sends msg to server in a blocking manner
@@ -271,15 +283,30 @@ pub const Client = struct {
         }
     }
 
+    /// decrement value of games left to play
+    /// if it reaches 0 then set stop operation flag
+    fn decrementGameCounter(self: *Client) void {
+        if (self.gamesLeft) |*gl| {
+            std.debug.assert(gl.* > 0);
+            gl.* -= 1;
+            if (gl.* == 0) self.shouldRun = false;
+        }
+    }
+
     /// client loop
     /// runs forever or until an error is thrown somewere
     pub fn loop(self: *Client, allocator: Allocator) void {
-        while (self.read(allocator) catch false) {}
+        while (self.shouldRun) {
+            self.read(allocator) catch |err| {
+                self.shouldRun = false;
+                print("execution stopped due to error: {s}\n", .{@errorName(err)});
+            };
+        }
     }
 
     pub fn deinit(self: *Client) void {
         self.stream.close();
-        self.game.?.deinit();
+        if (self.game) |*cgame| cgame.deinit();
     }
 };
 

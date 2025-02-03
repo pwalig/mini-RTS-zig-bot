@@ -32,7 +32,7 @@ pub fn main() !void {
     };
     const port = try std.fmt.parseInt(u16, port_value, 10);
 
-    var cli = try Client.init(host_value, port);
+    var cli = try Client.init(host_value, port, null);
     defer cli.deinit();
     cli.loop(allocator);
 }
