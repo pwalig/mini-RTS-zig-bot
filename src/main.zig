@@ -5,7 +5,7 @@ const print = std.debug.print;
 const Client = @import("client.zig").Client;
 const HelpMessage = @import("HelpMessage.zig");
 
-const version = "1.0.0";
+const version = "1.1.0";
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
