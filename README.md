@@ -12,12 +12,22 @@ Optionally set `-Doptimize=ReleaseFast`.
 
 For information about installing zig see: https://ziglang.org/learn/getting-started/
 
-# Run
+# Running the program
 ```
-./zig-out/bin/mini-rts-zig-bot.exe <host> <port>
+./mini-rts-zig-bot.exe <host> <port> [runModeOptions]
+./mini-rts-zig-bot.exe [infoOptions]
 ```
 
-See help text by running with just `-h` or `--help` command line argument.
+## Arguments:
+* `<host>` - IPv4 address of the server
+* `<port>` - Port number of the server
+
+## `[runModeOptions]`:
+* `--gamesToPlay <number>` - Play `<number>` games then exit (by default zig-bot tries to play unlimited number of games)
+
+## `[infoOptions]`:
+* `-h`, `--help` - Print help and exit
+* `-v`, `--version` - Print version number and exit
 
 # Compatibility
 

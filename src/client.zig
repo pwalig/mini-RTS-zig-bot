@@ -104,7 +104,14 @@ pub const Client = struct {
             @intFromEnum(Message.Type.yes) => {
                 if (self.state == State.Connected) {
                     self.state = State.Ready;
-                    try std.io.getStdOut().writer().print("named self: {s}\njoining...\n", .{self.nameIter.current()});
+                    try std.io.getStdOut().writer().print("named self: {s}\n", .{self.nameIter.current()});
+                    if (self.gamesLeft) |left| {
+                        if (left == 0) {
+                            self.shouldRun = false;
+                            return;
+                        }
+                    }
+                    try std.io.getStdOut().writer().print("joining...\n", .{});
                     try self.send("j\n");
                 }
             },
@@ -192,28 +199,22 @@ pub const Client = struct {
             @intFromEnum(Message.Type.leave) => {
                 const playerName = buff[1..]; // player name
                 if (std.mem.eql(u8, playerName, self.nameIter.current())) {
-                    try std.io.getStdOut().writer().print("lost all units\nrejoining...\n", .{});
-                    self.game.?.clear();
-                    self.state = State.Ready;
-                    try self.send("j\n");
+                    try std.io.getStdOut().writer().print("lost all units\n", .{});
+                    try self.decrementRejoinIfValid();
                 } else {
                     try self.game.?.deletePlayer(playerName);
                 }
             },
             @intFromEnum(Message.Type.lost) => {
                 const playerName = buff[1..]; // player name
-                try std.io.getStdOut().writer().print("lost the game to {s}\nrejoining...\n", .{playerName});
-                self.game.?.clear();
-                self.state = State.Ready;
-                try self.send("j\n");
+                try std.io.getStdOut().writer().print("lost the game to {s}\n", .{playerName});
+                try self.decrementRejoinIfValid();
             },
             @intFromEnum(Message.Type.win) => {
                 const playerName = buff[1..]; // player name
                 std.debug.assert(std.mem.eql(u8, playerName, self.nameIter.current()));
-                try std.io.getStdOut().writer().print("won the game\nrejoining...\n", .{});
-                self.game.?.clear();
-                self.state = State.Ready;
-                try self.send("j\n");
+                try std.io.getStdOut().writer().print("won the game\n", .{});
+                try self.decrementRejoinIfValid();
             },
             @intFromEnum(Message.Type.move) => {
                 var it = std.mem.tokenizeAny(u8, buff[1..], " \n");
@@ -283,9 +284,21 @@ pub const Client = struct {
         }
     }
 
+    fn rejoin(self: *Client) !void {
+        self.game.?.clear();
+        self.state = State.Ready;
+        try std.io.getStdOut().writer().print("rejoining...\n", .{});
+        try self.send("j\n");
+    }
+
+    fn decrementRejoinIfValid(self: *Client) !void {
+        self.decrementGamesCounter();
+        if (self.shouldRun) try self.rejoin();
+    }
+
     /// decrement value of games left to play
     /// if it reaches 0 then set stop operation flag
-    fn decrementGameCounter(self: *Client) void {
+    fn decrementGamesCounter(self: *Client) void {
         if (self.gamesLeft) |*gl| {
             std.debug.assert(gl.* > 0);
             gl.* -= 1;
