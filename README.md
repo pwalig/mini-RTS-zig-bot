@@ -17,15 +17,17 @@ For information about installing zig see: https://ziglang.org/learn/getting-star
 ./zig-out/bin/mini-rts-zig-bot.exe <host> <port>
 ```
 
+See help text by running with just `-h` or `--help` command line argument.
+
 # Compatibility
 
 zig-bot is compatible with [mini-RTS-server](https://github.com/pwalig/mini-RTS-server)
 
 ## Version compatibility chart
 
-| version | 1.x.x | 2.x.x | 3.0.0 |
+| version | 1.x.x | 2.x.x | 3.x.x |
 | --- | --- | --- | --- |
-| **1.0.0** | :x: | :x: | :heavy_check_mark: |
+| **1.x.x** | :x: | :x: | :heavy_check_mark: |
 
 > [!NOTE]  
 > columns: server versions  
