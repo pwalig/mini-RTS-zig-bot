@@ -13,17 +13,21 @@ pub fn distance(x1: u32, y1: u32, x2: u32, y2: u32) u32 {
 }
 
 pub fn towards(sx: u32, sy: u32, tx: u32, ty: u32) coords {
-    var cds = coords{ .x = sx, .y = sy };
+    var dist: u32 = 0;
+    var x: u32 = 0;
     if (sx > tx) {
-        cds.x -= 1;
+        x = sx - 1;
+        dist = sx - tx;
     } else if (sx < tx) {
-        cds.x += 1;
-    } else if (sy > ty) {
-        cds.y -= 1;
-    } else if (sy < ty) {
-        cds.y += 1;
+        x = sx + 1;
+        dist = tx - sx;
     }
-    return cds;
+    if (sy > ty and sy - ty > dist) {
+        return coords{ .x = sx, .y = sy - 1 };
+    } else if (sy < ty and ty - sy > dist) {
+        return coords{ .x = sx, .y = sy + 1 };
+    }
+    return coords{ .x = x, .y = sy };
 }
 
 pub const coords = struct {
