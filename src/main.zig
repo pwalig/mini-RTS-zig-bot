@@ -4,6 +4,7 @@ const print = std.debug.print;
 
 const Client = @import("client.zig").Client;
 const Help = @import("Help.zig");
+const CommandLineOptions = @import("CommandLineOptions.zig");
 
 const version = "1.1.0";
 
@@ -38,30 +39,20 @@ pub fn main() !void {
         return;
     };
 
-    var gamesToPlay: ?u32 = null;
-    while (args.next()) |option| {
-        if (std.mem.eql(u8, option, "--gamesToPlay")) {
-            if (args.next()) |number| {
-                gamesToPlay = std.fmt.parseUnsigned(u32, number, 10) catch {
-                    try Help.printErrorMessage(program_name, "invalid number of games to play {s}\n", .{number});
-                    return;
-                };
-            } else {
-                try Help.printErrorMessage(program_name, "number of games to play not provided\n", .{});
-                return;
-            }
-        } else {
-            try Help.printErrorMessage(program_name, "unrecognised option: {s}\n", .{option});
+    const cmdops = CommandLineOptions.init(args, std.io.getStdOut().writer()) catch |err| switch (err) {
+        error.parseError => {
+            try Help.printHelpMessage(program_name);
             return;
-        }
-    }
+        },
+        else => return err,
+    };
 
     const port = std.fmt.parseUnsigned(u16, port_value, 10) catch {
         try Help.printErrorMessage(program_name, "invalid port number {s}\n", .{port_value});
         return;
     };
 
-    var cli = try Client.init(host_value, port, gamesToPlay);
+    var cli = try Client.init(host_value, port, cmdops);
     defer cli.deinit();
     cli.loop(allocator);
 }

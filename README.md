@@ -24,6 +24,7 @@ For information about installing zig see: https://ziglang.org/learn/getting-star
 
 ## `[runModeOptions]`:
 * `--gamesToPlay <number>` - Play `<number>` games then exit (by default zig-bot tries to play unlimited number of games)
+* `--dontWin` - Stop digging resource when is only one unit apart from winning
 
 ## `[infoOptions]`:
 * `-h`, `--help` - Print help and exit

@@ -11,6 +11,7 @@ const helpMessage =
     "\n" ++
     "[runModeOptions]:\n" ++
     "\t--gamesToPlay <number>\tPlay <number> games then exit (by default zig-bot tries to play unlimited number of games)\n" ++
+    "\t--dontWin\t\tStop digging resource when is only one unit apart from winning\n" ++
     "\n" ++
     "[infoOptions]:\n" ++
     "\t-h, --help\t\tPrint this help and exit\n" ++

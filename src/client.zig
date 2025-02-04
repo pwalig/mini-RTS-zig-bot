@@ -9,6 +9,7 @@ const Unit = game.Unit;
 const Config = @import("Config.zig");
 const coordOps = @import("coordinateOps.zig");
 const NameIterator = @import("NameIterator.zig");
+const CommandLineOptions = @import("CommandLineOptions.zig");
 
 const singleReadSize = 50;
 
@@ -20,24 +21,26 @@ pub const Client = struct {
     game: ?Game = null,
     nameIter: NameIterator = undefined,
     gamesLeft: ?u32 = undefined,
+    dontWin: bool = false,
     shouldRun: bool = true,
 
     /// sets up TCP connection
     /// after init .game is still null, .game will be initialized in .parse() if client recieves c message from server
-    pub fn init(hostname: []const u8, port: u16, gamesToPlay: ?u32) !Client {
+    pub fn init(hostname: []const u8, port: u16, cmdops: CommandLineOptions) !Client {
         const peer = try std.net.Address.parseIp4(hostname, port);
         const strm = try std.net.tcpConnectToAddress(peer);
         try std.io.getStdOut().writer().print("connected to: {s}:{d}\n", .{ hostname, port });
         return Client{
             .stream = strm,
             .state = State.Connected,
-            .gamesLeft = gamesToPlay,
+            .gamesLeft = cmdops.gamesToPlay,
+            .dontWin = cmdops.dontWin,
         };
     }
 
     /// reads from socket stream until delimiter is found
     /// if message delimiter \n is found => calls self.parse()
-    /// should block until finds delimiter, but instead throws error if delimiter not found in stream - TO FIX
+    /// blocks until delimiter is found or server disconnects
     pub fn read(self: *Client, allocator: Allocator) !void {
         var buff = std.ArrayList(u8).init(allocator);
         defer buff.deinit();
@@ -262,9 +265,11 @@ pub const Client = struct {
                     var buf: [max_len]u8 = undefined;
 
                     if (self.game.?.board.getField(unit.*.x, unit.*.y).res_hp != null) {
-                        try self.send("d");
-                        try self.send(try std.fmt.bufPrint(&buf, "{}", .{unit.*.id}));
-                        try self.send("\n");
+                        if (!self.dontWin or self.game.?.findPlayer(self.nameIter.current()).?.units.count() != self.game.?.unitsToWin - 1) {
+                            try self.send("d");
+                            try self.send(try std.fmt.bufPrint(&buf, "{}", .{unit.*.id}));
+                            try self.send("\n");
+                        }
                     } else {
                         const fieldc = self.game.?.board.getClosestUnoccupiedResourceFieldPosition(unit.*.x, unit.*.y);
                         if (fieldc) |fc| {
