@@ -2,7 +2,7 @@ const std = @import("std");
 const net = std.net;
 const print = std.debug.print;
 
-const Client = @import("client.zig").Client;
+const Client = @import("Client.zig");
 const Help = @import("Help.zig");
 const CommandLineOptions = @import("CommandLineOptions.zig");
 
